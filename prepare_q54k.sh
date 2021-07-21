@@ -1,5 +1,0 @@
-position="54"
-from_aa="Q"
-to_aa="K"
-
-bash prepare_simulation.sh $position $from_aa $to_aa

@@ -1,18 +1,4 @@
 #!/bin/env python3
-
-mutation={
-    "from":"Q",
-    "from_long":"GLN",
-    "to":"R",
-    "to_long":"ARG",
-    "position":54,
-}
-out_directory_base="mutation_performed"
-folder_prefix=""
-
-molecule_name="fgf2"
-chain_id="A" # from testing. automate how?
-
 #
 # File: PyMOLMutateAminoAcids.py
 # Author: Manish Sud <msud@san.rr.com>
@@ -57,75 +43,126 @@ except ImportError as ErrMsg:
     sys.stderr.write(f"Failed to import PyMOL package, most likely because pymol is not installed: {ErrMsg}\n")
     sys.exit(1)
 
-in_file=sys.argv[1]
-print("mutating structure: ", in_file)
-if len(sys.argv)>2:
-    out_file=sys.argv[2]
-else:
-    out_file=sys.argv[1][:-4]+f"_mutated_{mutation['from']}{mutation['position']}{mutation['to']}.pdb"
+aa_table_one_to_three={
+    "A":"ALA",
+    "C":"CYS",
+    "D":"ASP",
+    "E":"GLU",
+    "F":"PHE",
+    "G":"GLY",
+    "H":"HIS",
+    "I":"ILE",
+    "K":"LYS",
+    "L":"LEU",
+    "M":"MET",
+    "N":"ASN",
+    "P":"PRO",
+    "Q":"GLN",
+    "R":"ARG",
+    "S":"SER",
+    "T":"THR",
+    "V":"VAL",
+    "W":"TRP",
+    "Y":"TYR",
+}
 
-def main():
-    """Mutate specified residues across chains and generate an output file."""
+from contextlib import redirect_stdout, redirect_stderr
 
-    pymol.cmd.reinitialize() # necessary?
-    pymol.cmd.load(in_file, molecule_name) # LoadMolecule
+def prepare(in_file,out_file,molecule_name,chain_id,mutation):
+    with open("redirect_output.out","a+") as file:
+        with redirect_stdout(file):
+            """Mutate specified residues across chains and generate an output file."""
 
-    """Retrieve chain IDs. """    
-    try:
-        ChainIDs = pymol.cmd.get_chains(f"model {molecule_name}")
-    except pymol.CmdException as ErrMsg:
-        print(f"PyMOLUtil.GetChains: Invalid molecule name: {molecule_name}")
-        sys.exit(1)
+            #reinitialize to restore program to default state after possible previous calls of this function
+            pymol.cmd.reinitialize()
+            pymol.cmd.load(in_file, molecule_name)
 
-    if len(ChainIDs)==0:
-        print(f"no chains found for molecule {molecule_name}")
-        sys.exit(1)
-    if not chain_id in ChainIDs:
-        print(f"chain {chain_id} not found in chain ids of molecule {molecule_name}")
-        sys.exit(1)
-    
-    # Apply mutations
-    
-    # Setup mutagenesis wizard
-    pymol.cmd.wizard("mutagenesis")
-    pymol.cmd.refresh_wizard()
+            if "from_long" not in mutation:
+                mutation["from_long"]=aa_table_one_to_three[mutation["from"]]
 
-    # select residue to be mutated
-    select_residue = "/%s//%s/%s" % (molecule_name, chain_id, mutation["position"])
-    pymol.cmd.iterate(select_residue, "(stored.resi,stored.resn)=(resi,oneletter)")
-    if int(pymol.stored.resi)!=mutation["position"] or pymol.stored.resn!=mutation["from"]:
-        print(f"WT residue or position wrong: mutation={{{mutation}}}, but actually residue_index: {pymol.stored.resi} and residue name: {pymol.stored.resn}")
-        sys.exit(1)
+            if "to_long" not in mutation:
+                mutation["to_long"]=aa_table_one_to_three[mutation["to"]]
 
-    pymol.cmd.get_wizard().do_select(select_residue)
+            mutation["position"]=int(mutation["position"])
 
-    # setup mutation (create mutation and open list of rotamers)
-    pymol.cmd.get_wizard().set_mode(mutation["to_long"])
+            assert mutation["from_long"]==aa_table_one_to_three[mutation["from"]]
+            assert mutation["to_long"]==aa_table_one_to_three[mutation["to"]]
 
-    # get rotamer with lowest strain
-    strain=pymol.cmd.get_wizard().bump_scores[0]
-    least_strain_rotamer_index=0
-    for i in range(0,len(pymol.cmd.get_wizard().bump_scores)):
-        if pymol.cmd.get_wizard().bump_scores[i]<strain:
-            strain=pymol.cmd.get_wizard().bump_scores[i]
-            least_strain_rotamer_index=i
-    
-    # apply mutation
-    pymol.cmd.get_wizard().do_state(least_strain_rotamer_index+1)
-    pymol.cmd.get_wizard().apply()
-    
-    # quit wizard
-    pymol.cmd.set_wizard("done")
+            """Retrieve chain IDs. """    
+            try:
+                ChainIDs = pymol.cmd.get_chains(f"model {molecule_name}")
+            except pymol.CmdException as ErrMsg:
+                print(f"PyMOLUtil.GetChains: Invalid molecule name: {molecule_name}")
+                sys.exit(1)
 
-    select_residue = "/%s//%s/%s" % (molecule_name, chain_id, mutation["position"])
-    pymol.cmd.iterate(select_residue, "(stored.resi,stored.resn)=(resi,oneletter)")
-    if int(pymol.stored.resi)!=mutation["position"] or pymol.stored.resn!=mutation["to"]:
-        print(f"WT residue or position wrong: mutation={{{mutation}}}, but actually residue_index: {pymol.stored.resi} and residue name: {pymol.stored.resn}")
-        sys.exit(1)
+            if len(ChainIDs)==0:
+                print(f"no chains found for molecule {molecule_name}")
+                sys.exit(1)
+            if not chain_id in ChainIDs:
+                print(f"chain {chain_id} not found in chain ids of molecule {molecule_name}")
+                sys.exit(1)
+            
+            # Apply mutations
+            
+            # Setup mutagenesis wizard
+            pymol.cmd.wizard("mutagenesis")
+            pymol.cmd.refresh_wizard()
 
-    #  save to output file
-    pymol.cmd.save(out_file, molecule_name)
-    
-    # pymol.cmd.delete(MolName)
+            # select residue to be mutated
+            select_residue = "/%s//%s/%s" % (molecule_name, chain_id, mutation["position"])
+            pymol.cmd.iterate(select_residue, "(stored.resi,stored.resn)=(resi,oneletter)")
+            if int(pymol.stored.resi)!=mutation["position"] or pymol.stored.resn!=mutation["from"]:
+                print(f"WT residue or position wrong: expected {mutation}, but structure actually contains {pymol.stored.resn} at {pymol.stored.resi}")
+                sys.exit(1)
 
-main()
+            pymol.cmd.get_wizard().do_select(select_residue)
+
+            # setup mutation (create mutation and open list of rotamers)
+            pymol.cmd.get_wizard().set_mode(mutation["to_long"])
+
+            # get rotamer with lowest strain
+            strain=pymol.cmd.get_wizard().bump_scores[0]
+            least_strain_rotamer_index=0
+            for i in range(0,len(pymol.cmd.get_wizard().bump_scores)):
+                if pymol.cmd.get_wizard().bump_scores[i]<strain:
+                    strain=pymol.cmd.get_wizard().bump_scores[i]
+                    least_strain_rotamer_index=i
+            
+            # apply mutation
+            pymol.cmd.get_wizard().do_state(least_strain_rotamer_index+1)
+            pymol.cmd.get_wizard().apply()
+            
+            # quit wizard
+            pymol.cmd.set_wizard("done")
+
+            select_residue = "/%s//%s/%s" % (molecule_name, chain_id, mutation["position"])
+            pymol.cmd.iterate(select_residue, "(stored.resi,stored.resn)=(resi,oneletter)")
+            if int(pymol.stored.resi)!=mutation["position"] or pymol.stored.resn!=mutation["to"]:
+                print(f"WT residue or position wrong: expected mutation {mutation}, but got {pymol.stored.resn} in position {pymol.stored.resi}")
+                sys.exit(1)
+
+            #  save to output file
+            pymol.cmd.save(out_file, molecule_name)
+            
+            # pymol.cmd.delete(MolName)
+
+if __name__=="__main__":
+    mutation={
+        "from":"Q",
+        "from_long":"GLN",
+        "to":"R",
+        "to_long":"ARG",
+        "position":54,
+    }
+
+    molecule_name="fgf2"
+    chain_id="A" # from testing. automate how?
+
+    in_file=sys.argv[1]
+    print("mutating structure: ", in_file)
+    if len(sys.argv)>2:
+        out_file=sys.argv[2]
+    else:
+        out_file=sys.argv[1][:-4]+f"_mutated_{mutation['from']}{mutation['position']}{mutation['to']}.pdb"
+
+    prepare(in_file,out_file,molecule_name,chain_id,mutation)
