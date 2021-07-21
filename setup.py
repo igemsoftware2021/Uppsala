@@ -5,7 +5,6 @@ import os
 import sys
 import subprocess
 import shutil
-from perform_mutagenesis import prepare
 
 protprep_path="/home/patrhenn/Downloads/qligfep_env/qligfep/protprep.py"
 qresfep_path="/home/patrhenn/Downloads/qligfep_env/qligfep/QresFEP.py"
@@ -44,6 +43,8 @@ class Wrapper:
         pass
 
     def prepare(self):
+        from perform_mutagenesis import prepare
+        
         #actually prepare the simulations
         full_work_path=os.path.join(os.getcwd(),self.directory)
         #create one folder to contain the simulations for the complex
@@ -178,7 +179,20 @@ class Wrapper:
     def run(self):
         #somehow run the code on a supercomputer cluster?
         #probably just prepare everything here, where a schrodinger license is available, and then instruct the user to copy everything to the supercomputer cluster and run the 'run' step there
-        pass
+        full_work_path=os.path.join(os.getcwd(),self.directory)
+        for (upper_dir) in ["single","complex"]:
+            for mutation in self.mutations:
+                mutation_from=mutation[0]
+                mutation_to=mutation[-1]
+                mutation_position=mutation[1:-1]
+
+                for (simulation_name,is_wt) in [(mutation_to,False),(mutation_from,True)]:
+                    simulation_name=simulation_name+mutation_position+"A"
+                    mutation_folder=os.path.join(full_work_path,upper_dir,simulation_name)
+
+                    #create folder to contain stuff related to (mutant to A) and (WT to A)
+                    os.chdir(os.path.join(mutation_folder,f"FEP_{simulation_name}"))
+                    assert subprocess.run("bash FEP_submit.sh".split()).returncode==0, f"could not submit simulation {upper_dir}/{simulation_name}"
 
     def analyze(self):
         #create a folder to contain the analysis results within each simulation set folder
