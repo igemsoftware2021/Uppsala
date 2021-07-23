@@ -1,14 +1,25 @@
-#all of this code does stuff in the current directory where this file is located.
-
-from contextlib import redirect_stdout
-import os
 import sys
+assert sys.version_info[0]>2,"python3 required. (try running with 'python3 myscript.py' instead of 'python myscript.py')"
+import os
 import subprocess
 import shutil
 
-protprep_path="/home/patrhenn/Downloads/qligfep_env/qligfep/protprep.py"
-qresfep_path="/home/patrhenn/Downloads/qligfep_env/qligfep/QresFEP.py"
-qprep_path="/home/patrhenn/Downloads/qligfep_env/Q6/bin/qprep"
+program_base_path="/home/patrhenn/Downloads/qligfep_env"
+
+protprep_path=os.path.join(program_base_path,"qligfep/protprep.py")
+qresfep_path=os.path.join(program_base_path,"qligfep/QresFEP.py")
+qprep_path=os.path.join(program_base_path,"Q6/bin/qprep")
+qligfep_analysis_path=os.path.join(program_base_path,"qligfep/analyze_FEP.py")
+
+#script location on uppmax
+qligfep_analysis_path="/proj/uppmax2021-2-11/qligfep_env/qligfep/analyze_FEP.py"
+
+def is_float(num_as_string):
+    try:
+        f=float(num_as_string)
+        return True
+    except:
+        return False
 
 # return <does directory already exist?>
 def create_dir_if_not_exists(dir):
@@ -43,6 +54,7 @@ class Wrapper:
         pass
 
     def prepare(self):
+        #import here to not required a pymol installation on e.g. the cluster where the simulations are run, which usually is headless
         from perform_mutagenesis import prepare
         
         #actually prepare the simulations
@@ -180,7 +192,7 @@ class Wrapper:
         #somehow run the code on a supercomputer cluster?
         #probably just prepare everything here, where a schrodinger license is available, and then instruct the user to copy everything to the supercomputer cluster and run the 'run' step there
         full_work_path=os.path.join(os.getcwd(),self.directory)
-        for (upper_dir) in ["single","complex"]:
+        for upper_dir in ["single","complex"]:
             for mutation in self.mutations:
                 mutation_from=mutation[0]
                 mutation_to=mutation[-1]
@@ -195,10 +207,67 @@ class Wrapper:
                     assert subprocess.run("bash FEP_submit.sh".split()).returncode==0, f"could not submit simulation {upper_dir}/{simulation_name}"
 
     def analyze(self):
+        #just import numpy here for version checking (numpy.nanmean is used inside the external qligfep analysis script, which was introduced in numpy 1.8)
+        import numpy
+        assert int(numpy.__version__.split(".")[1])>=15,"numpy version >=1.15.0 required for analysis"
         #create a folder to contain the analysis results within each simulation set folder
-        #and run the analysis script in there
+        full_work_path=os.path.join(os.getcwd(),self.directory)
+
+        delta_g={
+            "single_wt":0.0,
+            "single_mut":0.0,
+            "complex_wt":0.0,
+            "complex_mut":0.0,
+        }
+
+        for upper_dir in ["single","complex"]:
+            for mutation in self.mutations:
+                mutation_from=mutation[0]
+                mutation_to=mutation[-1]
+                mutation_position=mutation[1:-1]
+
+                for (simulation_name,is_wt) in [(mutation_to,False),(mutation_from,True)]:
+                    simulation_name=simulation_name+mutation_position+"A"
+
+                    mutation_folder=os.path.join(full_work_path,upper_dir,simulation_name)
+
+                    os.chdir(mutation_folder)
+
+                    if True or not os.path.exists("analyze.out"):
+                        with open("analyze.out","w+") as analysis_out_file:
+                            #and run the analysis scipt in there
+                            assert subprocess.run(f"python3 {qligfep_analysis_path} -F FEP_{simulation_name} -C SNOWY".split(),stdout=analysis_out_file).returncode==0
+                    with open("analyze.out","r") as analyis_out_file:
+                        #line:=FEP_mutation deltag deltag_sem deltag_forward deltag_forward_sem deltag_reverse deltag_reverse_sem deltag_overlap_sampling deltag_overlap_sampling_sem deltag_bennet_acceptance_ratio deltag_bennet_acceptance_ratio_sem
+                        #e.g. "FEP_E58A 217.05  0.82 216.79  0.73 -217.32  0.92 217.03  0.82 217.04  0.82"
+                        for line in analyis_out_file.readlines():
+                            if line[:4]=="FEP_":
+                                cells=[]
+                                for cell in line.split():
+                                    #cells are seperated by at least one space
+                                    if len(cell)>0 and cell[:4]!="FEP_":
+                                        assert is_float(cell),cell
+                                        cells.append(float(cell))
+
+                        if upper_dir=="complex":
+                            if is_wt:
+                                delta_g["complex_wt"]=cells[0]
+                            else:
+                                delta_g["complex_mut"]=cells[0]
+                        else:
+                            if is_wt:
+                                delta_g["single_wt"]=cells[0]
+                            else:
+                                delta_g["single_mut"]=cells[0]
+
+        assert delta_g["single_wt"]!=0.0
+        assert delta_g["single_mut"]!=0.0
+        assert delta_g["complex_wt"]!=0.0
+        assert delta_g["complex_mut"]!=0.0
+                                
         #then combine the output from the output files into a small set of relevant numbers, and print these here
-        pass
+        result=(delta_g["complex_wt"]-delta_g["single_wt"])-(delta_g["complex_mut"]-delta_g["single_mut"])
+        print(f"delta delta g for {mutation}: {result} kcal/mol (large positive values represent a higher binding affinity)")
 
 def fix_3rd_column(in_filename,out_filename=None):
     if not out_filename:
