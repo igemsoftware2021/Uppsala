@@ -2,4 +2,4 @@
 
 - setup.py: contains most of the actual code.
 - perform_mutagenesis.py: contains the code that performs the mutagenesis with the pymol cli. it is used by setup.py, no need to manual touch it
-- evaluate_mutations.py: example file of the code a user has to write to build the environment, prepare the simulations, run and analayze them. running this on an old laptop takes about 2-3 minutes. if no python exceptions occur, everything  works. (in those cases, see the output for more information)
+- evaluate_mutations.py: example file of the code a user has to write to build the environment, prepare the simulations, run and analayze them. running this on an old laptop takes about 2-3 minutes (running this code here, not the actual runtime of the simulations).
