@@ -212,62 +212,73 @@ class Wrapper:
         assert int(numpy.__version__.split(".")[1])>=15,"numpy version >=1.15.0 required for analysis"
         #create a folder to contain the analysis results within each simulation set folder
         full_work_path=os.path.join(os.getcwd(),self.directory)
-
-        delta_g={
-            "single_wt":0.0,
-            "single_mut":0.0,
-            "complex_wt":0.0,
-            "complex_mut":0.0,
-        }
-
-        for upper_dir in ["single","complex"]:
+        
+        with open(os.path.join(full_work_path,"results.out"),"w+") as result_out_file:
             for mutation in self.mutations:
                 mutation_from=mutation[0]
                 mutation_to=mutation[-1]
                 mutation_position=mutation[1:-1]
 
-                for (simulation_name,is_wt) in [(mutation_to,False),(mutation_from,True)]:
-                    simulation_name=simulation_name+mutation_position+"A"
+                delta_g={
+                    "single_wt":0.0,
+                    "single_mut":0.0,
+                    "complex_wt":0.0,
+                    "complex_mut":0.0,
+                }   
+                sem=0.0
 
-                    mutation_folder=os.path.join(full_work_path,upper_dir,simulation_name)
+                for upper_dir in ["single","complex"]:
+                    for (simulation_name,is_wt) in [(mutation_to,False),(mutation_from,True)]:
+                        simulation_name=simulation_name+mutation_position+"A"
 
-                    os.chdir(mutation_folder)
+                        mutation_folder=os.path.join(full_work_path,upper_dir,simulation_name)
 
-                    if True or not os.path.exists("analyze.out"):
-                        with open("analyze.out","w+") as analysis_out_file:
-                            #and run the analysis scipt in there
-                            assert subprocess.run(f"python3 {qligfep_analysis_path} -F FEP_{simulation_name} -C SNOWY".split(),stdout=analysis_out_file).returncode==0
-                    with open("analyze.out","r") as analyis_out_file:
-                        #line:=FEP_mutation deltag deltag_sem deltag_forward deltag_forward_sem deltag_reverse deltag_reverse_sem deltag_overlap_sampling deltag_overlap_sampling_sem deltag_bennet_acceptance_ratio deltag_bennet_acceptance_ratio_sem
-                        #e.g. "FEP_E58A 217.05  0.82 216.79  0.73 -217.32  0.92 217.03  0.82 217.04  0.82"
-                        for line in analyis_out_file.readlines():
-                            if line[:4]=="FEP_":
-                                cells=[]
-                                for cell in line.split():
-                                    #cells are seperated by at least one space
-                                    if len(cell)>0 and cell[:4]!="FEP_":
-                                        assert is_float(cell),cell
-                                        cells.append(float(cell))
+                        os.chdir(mutation_folder)
 
-                        if upper_dir=="complex":
-                            if is_wt:
-                                delta_g["complex_wt"]=cells[0]
+                        if True or not os.path.exists("analyze.out"):
+                            with open("analyze.out","w+") as analysis_out_file:
+                                #and run the analysis scipt in there
+                                assert subprocess.run(f"python3 {qligfep_analysis_path} -F FEP_{simulation_name} -C SNOWY".split(),stdout=analysis_out_file).returncode==0
+                        with open("analyze.out","r") as analyis_out_file:
+                            #line:=FEP_mutation deltag deltag_sem deltag_forward deltag_forward_sem deltag_reverse deltag_reverse_sem deltag_overlap_sampling deltag_overlap_sampling_sem deltag_bennet_acceptance_ratio deltag_bennet_acceptance_ratio_sem
+                            #e.g. "FEP_E58A 217.05  0.82 216.79  0.73 -217.32  0.92 217.03  0.82 217.04  0.82"
+                            for line in analyis_out_file.readlines():
+                                if line[:4]=="FEP_":
+                                    cells=[]
+                                    for cell in line.split():
+                                        #cells are seperated by at least one space
+                                        if len(cell)>0 and cell[:4]!="FEP_":
+                                            assert is_float(cell),cell
+                                            cells.append(float(cell))
+
+                            sem+=cells[1]
+                            if upper_dir=="complex":
+                                if is_wt:
+                                    delta_g["complex_wt"]=cells[0]
+                                else:
+                                    delta_g["complex_mut"]=cells[0]
                             else:
-                                delta_g["complex_mut"]=cells[0]
-                        else:
-                            if is_wt:
-                                delta_g["single_wt"]=cells[0]
-                            else:
-                                delta_g["single_mut"]=cells[0]
+                                if is_wt:
+                                    delta_g["single_wt"]=cells[0]
+                                else:
+                                    delta_g["single_mut"]=cells[0]
 
-        assert delta_g["single_wt"]!=0.0
-        assert delta_g["single_mut"]!=0.0
-        assert delta_g["complex_wt"]!=0.0
-        assert delta_g["complex_mut"]!=0.0
-                                
-        #then combine the output from the output files into a small set of relevant numbers, and print these here
-        result=(delta_g["complex_wt"]-delta_g["single_wt"])-(delta_g["complex_mut"]-delta_g["single_mut"])
-        print(f"delta delta g for {mutation}: {result} kcal/mol (large positive values represent a higher binding affinity)")
+                assert delta_g["single_wt"]!=0.0
+                assert delta_g["single_mut"]!=0.0
+                assert delta_g["complex_wt"]!=0.0
+                assert delta_g["complex_mut"]!=0.0
+                                        
+                #then combine the output from the output files into a small set of relevant numbers, and print these here
+                result=(delta_g["complex_wt"]-delta_g["single_wt"])-(delta_g["complex_mut"]-delta_g["single_mut"])
+                result_string='delta delta g for {}: {:.2f} kcal/mol (cw:{:.2f}-sw:{:.2f})-(cm:{:.2f}-sm:{:.2f}), sum of sems: {:.2f} kcal/mol'.format(
+                    mutation,
+                    result,
+                    delta_g["complex_wt"],delta_g["single_wt"],delta_g["complex_mut"],delta_g["single_mut"],
+                    sem
+                )
+                print(result_string)
+                
+                result_out_file.write(result_string+"\n")
 
 def fix_3rd_column(in_filename,out_filename=None):
     if not out_filename:
