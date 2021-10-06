@@ -1,37 +1,11 @@
 #!/bin/env python3
-#
-# File: PyMOLMutateAminoAcids.py
-# Author: Manish Sud <msud@san.rr.com>
-#
-# Copyright (C) 2021 Manish Sud. All rights reserved.
-#
-# The functionality available in this script is implemented using PyMOL, a
-# molecular visualization system on an open source foundation originally
-# developed by Warren DeLano.
-#
-# This file is part of MayaChemTools.
-#
-# MayaChemTools is free software; you can redistribute it and/or modify it under
-# the terms of the GNU Lesser General Public License as published by the Free
-# Software Foundation; either version 3 of the License, or (at your option) any
-# later version.
-#
-# MayaChemTools is distributed in the hope that it will be useful, but without
-# any warranty; without even the implied warranty of merchantability of fitness
-# for a particular purpose.  See the GNU Lesser General Public License for more
-# details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with MayaChemTools; if not, see <http://www.gnu.org/licenses/> or
-# write to the Free Software Foundation Inc., 59 Temple Place, Suite 330,
-# Boston, MA, 02111-1307, USA.
 
-#https://pymolwiki.org/index.php/Launching_From_a_Script # how to use pymol as cli
-#https://pymolwiki.org/index.php/Iterate # how to get information from selected atoms
-#https://github.com/schrodinger/pymol-open-source/blob/master/modules/pymol/wizard/mutagenesis.py # pymol mutagenesis internals, including bump_scores (strain value for rotamers), and an example on pymol.storage for pymol interal->external communication
-#http://www.mayachemtools.org/docs/scripts/html/code/PyMOLMutateAminoAcids.html # the basis for this script, though not much is left
-#http://www.mayachemtools.org/docs/modules/html/PyMOLUtil.py.html#GetChains # reference for pymol chain retrieval, though not much is left
-#http://www.endmemo.com/bio/codon.php # codon table because i cannot remember them myself
+# https://pymolwiki.org/index.php/Launching_From_a_Script # how to use pymol as cli
+# https://pymolwiki.org/index.php/Iterate # how to get information from selected atoms
+# https://github.com/schrodinger/pymol-open-source/blob/master/modules/pymol/wizard/mutagenesis.py # pymol mutagenesis internals, including bump_scores (strain value for rotamers), and an example on pymol.storage for pymol interal->external communication
+# http://www.mayachemtools.org/docs/scripts/html/code/PyMOLMutateAminoAcids.html # the inspiration for this script, though not much (none?) of that code is actually included in this file
+# http://www.mayachemtools.org/docs/modules/html/PyMOLUtil.py.html#GetChains # reference for pymol chain retrieval, though not much (none?) of that code is actually included in this file
+# http://www.endmemo.com/bio/codon.php # codon table because i cannot remember them myself
 
 import sys
 
