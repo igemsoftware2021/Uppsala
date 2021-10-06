@@ -1,4 +1,4 @@
-# igem_2021_uppsala_qresfep_submission_helper
+# Software Tool - Team Uppsala, iGEM 2021
 
 - setup.py: contains most of the actual code.
 - perform_mutagenesis.py: contains the code that performs the mutagenesis with the pymol cli. it is used by setup.py, no need to manual touch it
