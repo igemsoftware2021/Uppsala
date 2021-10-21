@@ -40,14 +40,17 @@ class Wrapper:
         return f"dir:'{self.directory}',complex:'{self.complex_pdb}',single:'{self.single_pdb}',mutations:\"{self.mutations}\"\n"
 
     def build(self):
-        #download and build the q stuff, if not already present
-        # git clone q
-        # git clone qligfep
-        #build q
-        #prepare qligfep/settings.py
-        #prepare settings file for the q stuff as well, including runtime, number of cores etc.
+        #the version of qligfep we used is not published at the time of the wiki freeze. please keep a look on the qligfep github repository to check if the version of that software that works with protein-protein interactions is published
+
+        # git clone https://github.com/esguerra/Q6
+        # build q (for multi-threaded use! e.g. make sure qdynp exists, not just qdyn, because the latter is single-threaded only!)
+        # git clone https://github.com/qusers/qligfep
+        # prepare qligfep/settings.py
+        # adjust qlifgep/INPUTS/run.sh, which is a template file that will be submitted to UPPMAX with all the template parts replaced. change universal settings here, like the number of cores, job runtime, or account
+
         full_work_path=os.path.join(os.getcwd(),self.directory)
         create_dir_if_not_exists(full_work_path)
+
         #and save the current configuration into a file in the local directory
         with open(os.path.join(full_work_path,"setup.config"),"w+") as file:
             file.write(str(self))
